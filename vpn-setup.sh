@@ -110,7 +110,7 @@ END
     # Setup WebSocket
     cat > /usr/local/bin/ws-ssh << END
 #!/usr/bin/python3
-import socket, threading, thread, select, signal, sys, time, getopt
+import socket, threading, _thread, select, signal, sys, time, getopt
 
 # Listen
 LISTENING_ADDR = '0.0.0.0'
