@@ -1,178 +1,144 @@
 #!/bin/bash
 # AutoVPN-Pro Installer
 # Created by: Defebs-vpn
-# Created on: 2025-02-17 09:09:38
+# Created on: 2025-02-16 22:59:35
 
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
-NC='\033[0m'
+NC='\033[0m' # No Color
+INFO="${BLUE}[INFO]${NC}"
+ERROR="${RED}[ERROR]${NC}"
+OKEY="${GREEN}[OKEY]${NC}"
 
-# Installation Directory
-INSTALL_DIR="/etc/AutoVPN-Pro"
-CORE_DIR="$INSTALL_DIR/core"
+# Repository URL
+REPO="https://raw.githubusercontent.com/Defebs-vpn/AutoVPN-Pro/main"
 
-# Function: Show Banner
-show_banner() {
-    clear
-    echo -e "${BLUE}╔═════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║           AUTOVPN-PRO INSTALLER            ║${NC}"
-    echo -e "${BLUE}╚═════════════════════════════════════════════╝${NC}"
-    echo -e " Created by: ${GREEN}Defebs-vpn${NC}"
-    echo -e " Version  : ${GREEN}1.0${NC}"
-    echo -e "${BLUE}═════════════════════════════════════════════${NC}"
-}
+# Directories
+SCRIPT_DIR="/etc/AutoVPN-Pro"
+CORE_DIR="$SCRIPT_DIR/core"
+INSTALL_DIR="$SCRIPT_DIR/install"
+CONFIG_DIR="$SCRIPT_DIR/config"
+MENU_DIR="$SCRIPT_DIR/menu"
+MODULES_DIR="$SCRIPT_DIR/modules"
 
-# Function: Check Requirements
-check_requirements() {
-    echo -e "\n${YELLOW}Checking Requirements...${NC}"
-    
-    # Check if root
-    if [[ $EUID -ne 0 ]]; then
-        echo -e "${RED}This script must be run as root!${NC}"
-        exit 1
-    fi
-    
-    # Check OS
-    if [[ ! -e /etc/debian_version ]]; then
-        echo -e "${RED}This script only works on Debian/Ubuntu!${NC}"
-        exit 1
-    fi
-    
-    # Check Domain
-    if [[ -z $DOMAIN ]]; then
-        read -p "Enter your domain: " DOMAIN
-        echo $DOMAIN > /root/domain
-    fi
-}
+# Create required directories
+mkdir -p "$SCRIPT_DIR"
+mkdir -p "$CORE_DIR"
+mkdir -p "$INSTALL_DIR"/{xray,websocket}
+mkdir -p "$CONFIG_DIR"/{nginx,xray,websocket}
+mkdir -p "$MENU_DIR"
+mkdir -p "$MODULES_DIR"
 
-# Function: Install Dependencies
-install_dependencies() {
-    echo -e "\n${YELLOW}Installing Dependencies...${NC}"
-    
-    apt update
-    apt upgrade -y
-    apt install -y \
-        curl wget jq uuid-runtime certbot python3-certbot-nginx \
-        nginx socat netfilter-persistent vnstat fail2ban \
-        iptables-persistent net-tools neofetch chrony \
-        python3 python3-pip
-        
-    pip3 install speedtest-cli
-}
+# Download Core Files
+echo -e "${INFO} Downloading core files..."
+wget -q "$REPO/core/info.sh" -O "$CORE_DIR/info.sh"
+wget -q "$REPO/core/vars.conf" -O "$CORE_DIR/vars.conf"
+wget -q "$REPO/core/version.conf" -O "$CORE_DIR/version.conf"
 
-# Function: Install SSL Certificate
-install_ssl() {
-    echo -e "\n${YELLOW}Installing SSL Certificate...${NC}"
-    
-    systemctl stop nginx
-    certbot certonly --standalone --preferred-challenges http \
-        --agree-tos --email admin@$DOMAIN -d $DOMAIN
-    systemctl start nginx
-}
+# Download Installation Files
+echo -e "${INFO} Downloading installation files..."
+wget -q "$REPO/install/dependencies.sh" -O "$INSTALL_DIR/dependencies.sh"
+wget -q "$REPO/install/nginx.sh" -O "$INSTALL_DIR/nginx.sh"
+wget -q "$REPO/install/ssh.sh" -O "$INSTALL_DIR/ssh.sh"
 
-# Function: Install Core Services
-install_core() {
-    echo -e "\n${YELLOW}Installing Core Services...${NC}"
-    
-    # Create installation directory
-    mkdir -p $INSTALL_DIR/{core,install,config,menu,modules}
-    
-    # Install XRay
-    bash install/xray/core.sh
-    bash install/xray/vmess.sh
-    bash install/xray/vless.sh
-    bash install/xray/trojan.sh
-    bash install/xray/grpc.sh
-    
-    # Install WebSocket
-    bash install/websocket/tls.sh
-    bash install/websocket/nontls.sh
-    
-    # Configure Services
-    cp -r config/nginx/* /etc/nginx/
-    cp -r config/xray/* /usr/local/etc/xray/
-    cp -r config/websocket/* /usr/local/bin/websocket/
-}
+# Download XRay Installation Files
+echo -e "${INFO} Downloading XRay files..."
+wget -q "$REPO/install/xray/core.sh" -O "$INSTALL_DIR/xray/core.sh"
+wget -q "$REPO/install/xray/vmess.sh" -O "$INSTALL_DIR/xray/vmess.sh"
+wget -q "$REPO/install/xray/vless.sh" -O "$INSTALL_DIR/xray/vless.sh"
+wget -q "$REPO/install/xray/trojan.sh" -O "$INSTALL_DIR/xray/trojan.sh"
+wget -q "$REPO/install/xray/grpc.sh" -O "$INSTALL_DIR/xray/grpc.sh"
 
-# Function: Configure System
-configure_system() {
-    echo -e "\n${YELLOW}Configuring System...${NC}"
-    
-    # Set timezone
-    timedatectl set-timezone Asia/Jakarta
-    
-    # Enable BBR
-    echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
-    sysctl -p
-    
-    # Configure firewall
-    bash modules/security.sh --configure-firewall
-    
-    # Configure fail2ban
-    bash modules/security.sh --configure-fail2ban
-    
-    # Configure SSL security
-    bash modules/security.sh --configure-ssl
-}
+# Download WebSocket Files
+echo -e "${INFO} Downloading WebSocket files..."
+wget -q "$REPO/install/websocket/tls.sh" -O "$INSTALL_DIR/websocket/tls.sh"
+wget -q "$REPO/install/websocket/nontls.sh" -O "$INSTALL_DIR/websocket/nontls.sh"
 
-# Function: Create Menu
-create_menu() {
-    echo -e "\n${YELLOW}Creating Menu...${NC}"
-    
-    # Copy menu files
-    cp -r menu/* /usr/local/bin/
-    chmod +x /usr/local/bin/*
-    
-    # Create menu command
-    echo '#!/bin/bash' > /usr/local/bin/menu
-    echo 'bash /etc/AutoVPN-Pro/menu/panel.sh' >> /usr/local/bin/menu
-    chmod +x /usr/local/bin/menu
-}
+# Download Menu Files
+echo -e "${INFO} Downloading menu files..."
+wget -q "$REPO/menu/panel.sh" -O "$MENU_DIR/panel.sh"
+wget -q "$REPO/menu/account.sh" -O "$MENU_DIR/account.sh"
+wget -q "$REPO/menu/system.sh" -O "$MENU_DIR/system.sh"
+wget -q "$REPO/menu/tools.sh" -O "$MENU_DIR/tools.sh"
 
-# Function: Show Installation Complete
-show_complete() {
-    clear
-    echo -e "${BLUE}╔═════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║         INSTALLATION COMPLETED              ║${NC}"
-    echo -e "${BLUE}╚═════════════════════════════════════════════╝${NC}"
-    echo -e "\n${YELLOW}Installation Details:${NC}"
-    echo -e "━━━━━━━━━━━━━━━━━━━━━"
-    echo -e "Domain    : $DOMAIN"
-    echo -e "IP        : $(curl -s ipv4.icanhazip.com)"
-    echo -e "\n${YELLOW}Service Ports:${NC}"
-    echo -e "━━━━━━━━━━━━━━━━━━━━━"
-    echo -e "SSH       : 22"
-    echo -e "SSL/TLS   : 443"
-    echo -e "VMess     : 8443"
-    echo -e "VLESS     : 8442"
-    echo -e "Trojan    : 8441"
-    echo -e "gRPC      : 8444"
-    echo -e "\n${YELLOW}Command:${NC}"
-    echo -e "━━━━━━━━━━━━━━━━━━━━━"
-    echo -e "Type ${GREEN}menu${NC} to access control panel"
-    echo -e "${BLUE}═════════════════════════════════════════════${NC}"
-}
+# Download Module Files
+echo -e "${INFO} Downloading module files..."
+wget -q "$REPO/modules/bandwidth.sh" -O "$MODULES_DIR/bandwidth.sh"
+wget -q "$REPO/modules/backup.sh" -O "$MODULES_DIR/backup.sh"
+wget -q "$REPO/modules/monitor.sh" -O "$MODULES_DIR/monitor.sh"
+wget -q "$REPO/modules/security.sh" -O "$MODULES_DIR/security.sh"
 
-# Main Function
-main() {
-    # Show banner
-    show_banner
-    
-    # Start installation
-    check_requirements
-    install_dependencies
-    install_ssl
-    install_core
-    configure_system
-    create_menu
-    show_complete
-}
+# Set permissions
+chmod +x "$CORE_DIR"/*.sh
+chmod +x "$INSTALL_DIR"/*.sh
+chmod +x "$INSTALL_DIR"/xray/*.sh
+chmod +x "$INSTALL_DIR"/websocket/*.sh
+chmod +x "$MENU_DIR"/*.sh
+chmod +x "$MODULES_DIR"/*.sh
 
-# Run main function
-main
+# Run installation
+clear
+echo -e "${CYAN}╔═════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║         AUTOVPN-PRO INSTALLER              ║${NC}"
+echo -e "${CYAN}╚═════════════════════════════════════════════╝${NC}"
+echo -e " Version    : $(cat $CORE_DIR/version.conf)"
+echo -e " Created by : Defebs-vpn"
+echo -e " Created on : 2025-02-16 22:59:35"
+echo -e "${CYAN}═════════════════════════════════════════════${NC}"
+
+# Get domain
+echo -ne "\nEnter your domain: "
+read domain
+echo "$domain" > "$CONFIG_DIR/domain"
+
+# Start installation
+echo -e "\n${INFO} Starting installation...\n"
+
+# Install dependencies
+bash "$INSTALL_DIR/dependencies.sh"
+
+# Install Nginx
+bash "$INSTALL_DIR/nginx.sh"
+
+# Install SSH
+bash "$INSTALL_DIR/ssh.sh"
+
+# Install XRay
+bash "$INSTALL_DIR/xray/core.sh"
+bash "$INSTALL_DIR/xray/vmess.sh"
+bash "$INSTALL_DIR/xray/vless.sh"
+bash "$INSTALL_DIR/xray/trojan.sh"
+bash "$INSTALL_DIR/xray/grpc.sh"
+
+# Install WebSocket
+bash "$INSTALL_DIR/websocket/tls.sh"
+bash "$INSTALL_DIR/websocket/nontls.sh"
+
+# Configure Security
+bash "$MODULES_DIR/security.sh"
+
+# Create menu shortcut
+cat > /usr/local/bin/menu <<EOF
+#!/bin/bash
+bash "$MENU_DIR/panel.sh"
+EOF
+chmod +x /usr/local/bin/menu
+
+# Installation completed
+clear
+echo -e "${CYAN}╔═════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║         INSTALLATION COMPLETED              ║${NC}"
+echo -e "${CYAN}╚═════════════════════════════════════════════╝${NC}"
+echo -e ""
+echo -e "${GREEN}AutoVPN-Pro has been installed successfully!${NC}"
+echo -e ""
+echo -e "Type ${GREEN}menu${NC} to access VPN Manager"
+echo -e ""
+echo -e "Server will reboot in 10 seconds..."
+sleep 10
+reboot
