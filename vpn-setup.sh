@@ -561,34 +561,7 @@ setup_xray() {
 }
 END
 
-# Create XRay Service
-    cat > /etc/systemd/system/xray.service << END
-[Unit]
-Description=XRay Service
-Documentation=https://github.com/xtls
-After=network.target nss-lookup.target
-
-[Service]
-User=root
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-NoNewPrivileges=true
-ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
-Restart=on-failure
-RestartPreventExitStatus=23
-LimitNPROC=10000
-LimitNOFILE=1000000
-
-[Install]
-WantedBy=multi-user.target
-END
-
-    # Start XRay Service
-    systemctl daemon-reload
-    systemctl enable xray
-    systemctl start xray
-}
-
+  
     # Create Client Configs
     mkdir -p /etc/AutoVPN-Pro/client-config
     
