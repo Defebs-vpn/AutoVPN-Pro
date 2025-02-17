@@ -29,9 +29,6 @@ show_banner() {
     echo -e " ${YELLOW}Version${NC}   : 4.0 Premium"
     echo -e " ${YELLOW}Date${NC}      : $INSTALL_DATE"
     echo -e "${BLUE}═════════════════════════════════════════════${NC}"
-
-   sleep 5
-   clear
 }
 
 # Initial Setup
@@ -938,7 +935,7 @@ main() {
     echo -e "Type ${GREEN}menu${NC} to access control panel"
     
     echo -e "\n${BLUE}═════════════════════════════════════════════${NC}"
-    echo -e "${GREEN}Installation completed! System will reboot in 10 seconds...${NC}"
+    echo -e "${GREEN}Installation completed! System will reboot in 15 seconds...${NC}"
     
     # Save installation log
     cat > ${INSTALL_DIR}/installed.txt << END
@@ -949,7 +946,7 @@ Version: 4.0
 Created by: Defebs-vpn
 END
 
-    sleep 10
+    sleep 15
     reboot
 }
 
