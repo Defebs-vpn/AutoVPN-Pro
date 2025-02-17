@@ -59,6 +59,25 @@ echo -e "${INFO} Downloading WebSocket files..."
 wget -q "$REPO/install/websocket/tls.sh" -O "$INSTALL_DIR/websocket/tls.sh"
 wget -q "$REPO/install/websocket/nontls.sh" -O "$INSTALL_DIR/websocket/nontls.sh"
 
+# Download Config Files Nginx
+echo -e "${INFO} Downloading Config files Nginx..."
+wget -q "$REPO/config/nginx/nginx.conf" -O "$CONFIG_DIR/nginx/nginx.conf"
+wget -q "$REPO/config/nginx/xray.conf" -O "$CONFIG_DIR/nginx/xray.conf"
+wget -q "$REPO/config/nginx/ws.conf" -O "$CONFIG_DIR/nginx/ws.conf"
+
+# Download Config Files Xray
+echo -e "${INFO} Downloading Config files Nginx..."
+wget -q "$REPO/config/xray/config.json" -O "$CONFIG_DIR/xray/config.json"
+wget -q "$REPO/config/xray/vmess.json" -O "$CONFIG_DIR/xray/vmess.json"
+wget -q "$REPO/config/xray/vless.json" -O "$CONFIG_DIR/xray/vless.json"
+wget -q "$REPO/config/xray/trojan.json" -O "$CONFIG_DIR/xray/trojan.json"
+wget -q "$REPO/config/xray/grpc.json" -O "$CONFIG_DIR/xray/grpc.json"
+
+# Download Config Files Websocket
+echo -e "${INFO} Downloading Config files Websocket..."
+wget -q "$REPO/config/websocket/tls.json" -O "$CONFIG_DIR/websocket/tls.json"
+wget -q "$REPO/config/websocket/nontls.json" -O "$CONFIG_DIR/websocket/nontls.json"
+
 # Download Menu Files
 echo -e "${INFO} Downloading menu files..."
 wget -q "$REPO/menu/panel.sh" -O "$MENU_DIR/panel.sh"
@@ -78,6 +97,9 @@ chmod +x "$CORE_DIR"/*.sh
 chmod +x "$INSTALL_DIR"/*.sh
 chmod +x "$INSTALL_DIR"/xray/*.sh
 chmod +x "$INSTALL_DIR"/websocket/*.sh
+chmod +x "$CONFIG_DIR"/nginx/*.conf
+chmod +x "$CONFIG_DIR"/xray/*.json
+chmod +x "$CONFIG_DIR"/websocket/*.json
 chmod +x "$MENU_DIR"/*.sh
 chmod +x "$MODULES_DIR"/*.sh
 
@@ -119,7 +141,26 @@ bash "$INSTALL_DIR/xray/grpc.sh"
 bash "$INSTALL_DIR/websocket/tls.sh"
 bash "$INSTALL_DIR/websocket/nontls.sh"
 
+# Install Config Nginx
+bash "$CONFIG_DIR/nginx/nginx.conf"
+bash "$CONFIG_DIR/nginx/xray.conf"
+bash "$CONFIG_DIR/nginx/ws.conf"
+
+# Install Config Xray
+bash "$CONFIG_DIR/xray/config.json"
+bash "$CONFIG_DIR/xray/vmess.json"
+bash "$CONFIG_DIR/xray/vless.json"
+bash "$CONFIG_DIR/xray/trojan.json"
+bash "$CONFIG_DIR/xray/grpc.json"
+
+# Install Config Websocket
+bash "$CONFIG_DIR/websocket/tls.json"
+bash "$CONFIG_DIR/websocket/nontls.json"
+
 # Configure Security
+bash "$MODULES_DIR/bandwidth.sh"
+bash "$MODULES_DIR/backup.sh"
+bash "$MODULES_DIR/monitor.sh"
 bash "$MODULES_DIR/security.sh"
 
 # Create menu shortcut
