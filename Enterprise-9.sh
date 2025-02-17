@@ -75,10 +75,29 @@ setup_domain() {
     echo -e "${YELLOW}Please ensure your domain's A record points to: ${MYIP}${NC}"
     echo -e "${YELLOW}Press enter when ready...${NC}"
     read
+
+    # Setup Cloudflare DNS (Optional)
+    read -p "Do you want to setup Cloudflare DNS? (y/n): " setup_cf
+    if [[ $setup_cf == "y" ]]; then
+        read -p "Enter Cloudflare Email: " CF_EMAIL
+        read -p "Enter Cloudflare API Key: " CF_API_KEY
+        
+        # Save Cloudflare credentials
+        cat > ${INSTALL_DIR}/cloudflare.conf << END
+CF_EMAIL='${CF_EMAIL}'
+CF_API_KEY='${CF_API_KEY}'
+CF_ZONE_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=${DOMAIN}" \
+     -H "X-Auth-Email: ${CF_EMAIL}" \
+     -H "X-Auth-Key: ${CF_API_KEY}" \
+     -H "Content-Type: application/json" | jq -r '.result[0].id')
+END
+    fi
     
     # Install SSL Certificate
+    systemctl stop nginx
     certbot --nginx -d $DOMAIN --non-interactive --agree-tos --email dedefebriansyah402@gmail.com \
         --redirect --hsts --staple-ocsp
+    systemctl start nginx
     
     # Create SSL Directory
     mkdir -p /etc/ssl/$DOMAIN
