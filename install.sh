@@ -18,6 +18,7 @@ OKEY="${GREEN}[OKEY]${NC}"
 # Repository URL
 REPO="https://raw.githubusercontent.com/Defebs-vpn/AutoVPN-Pro/main"
 
+chmod +x /etc/AutoVPN-Pro/config/nginx/nginx.conf
 # Directories
 SCRIPT_DIR="/etc/AutoVPN-Pro"
 CORE_DIR="$SCRIPT_DIR/core"
@@ -97,9 +98,6 @@ chmod +x "$CORE_DIR"/*.sh
 chmod +x "$INSTALL_DIR"/*.sh
 chmod +x "$INSTALL_DIR"/xray/*.sh
 chmod +x "$INSTALL_DIR"/websocket/*.sh
-chmod +x "$CONFIG_DIR"/nginx/*.conf
-chmod +x "$CONFIG_DIR"/xray/*.json
-chmod +x "$CONFIG_DIR"/websocket/*.json
 chmod +x "$MENU_DIR"/*.sh
 chmod +x "$MODULES_DIR"/*.sh
 
