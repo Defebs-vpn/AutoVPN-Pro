@@ -29,6 +29,9 @@ show_banner() {
     echo -e " ${YELLOW}Version${NC}   : 4.0 Premium"
     echo -e " ${YELLOW}Date${NC}      : $INSTALL_DATE"
     echo -e "${BLUE}═════════════════════════════════════════════${NC}"
+
+   sleep 5
+   clear
 }
 
 # Initial Setup
