@@ -1,0 +1,99 @@
+{
+    "inbounds": [
+        {
+            "port": 8444,
+            "protocol": "vmess",
+            "settings": {
+                "clients": [
+                    {
+                        "id": "${uuid}",
+                        "alterId": 0,
+                        "email": "vmess-grpc@${domain}"
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "grpc",
+                "security": "tls",
+                "tlsSettings": {
+                    "certificates": [
+                        {
+                            "certificateFile": "/etc/letsencrypt/live/${domain}/fullchain.pem",
+                            "keyFile": "/etc/letsencrypt/live/${domain}/privkey.pem"
+                        }
+                    ]
+                },
+                "grpcSettings": {
+                    "serviceName": "vmess-grpc"
+                }
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": ["http", "tls", "quic"]
+            }
+        },
+        {
+            "port": 8445,
+            "protocol": "vless",
+            "settings": {
+                "clients": [
+                    {
+                        "id": "${uuid}",
+                        "email": "vless-grpc@${domain}"
+                    }
+                ],
+                "decryption": "none"
+            },
+            "streamSettings": {
+                "network": "grpc",
+                "security": "tls",
+                "tlsSettings": {
+                    "certificates": [
+                        {
+                            "certificateFile": "/etc/letsencrypt/live/${domain}/fullchain.pem",
+                            "keyFile": "/etc/letsencrypt/live/${domain}/privkey.pem"
+                        }
+                    ]
+                },
+                "grpcSettings": {
+                    "serviceName": "vless-grpc"
+                }
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": ["http", "tls", "quic"]
+            }
+        },
+        {
+            "port": 8446,
+            "protocol": "trojan",
+            "settings": {
+                "clients": [
+                    {
+                        "password": "${uuid}",
+                        "email": "trojan-grpc@${domain}"
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "grpc",
+                "security": "tls",
+                "tlsSettings": {
+                    "certificates": [
+                        {
+                            "certificateFile": "/etc/letsencrypt/live/${domain}/fullchain.pem",
+                            "keyFile": "/etc/letsencrypt/live/${domain}/privkey.pem"
+                        }
+                    ]
+                },
+                "grpcSettings": {
+                    "serviceName": "trojan-grpc"
+                }
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": ["http", "tls", "quic"]
+            }
+        }
+    ]
+}

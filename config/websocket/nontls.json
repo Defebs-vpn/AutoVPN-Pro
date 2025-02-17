@@ -1,0 +1,61 @@
+{
+    "server": {
+        "port": 80,
+        "host": "0.0.0.0",
+        "settings": {
+            "client_timeout": 300,
+            "heartbeat_interval": 50,
+            "compression": true,
+            "max_payload_size": 65536
+        },
+        "proxy": {
+            "target": {
+                "host": "127.0.0.1",
+                "port": 22
+            },
+            "connect_timeout": 5,
+            "read_timeout": 300,
+            "write_timeout": 300
+        },
+        "paths": {
+            "/ssh-ws": {
+                "auth": {
+                    "type": "none"
+                },
+                "proxy_protocol": true
+            },
+            "/openvpn-ws": {
+                "auth": {
+                    "type": "none"
+                },
+                "proxy_protocol": true
+            },
+            "/worryfree": {
+                "auth": {
+                    "type": "none"
+                },
+                "proxy_protocol": true
+            },
+            "/kuota-habis": {
+                "auth": {
+                    "type": "none"
+                },
+                "proxy_protocol": true
+            }
+        },
+        "logging": {
+            "level": "info",
+            "file": "/var/log/websocket-nontls.log",
+            "format": "json"
+        },
+        "security": {
+            "allow_ip_ranges": [],
+            "deny_ip_ranges": [],
+            "rate_limit": {
+                "enabled": true,
+                "requests_per_second": 10,
+                "burst_size": 20
+            }
+        }
+    }
+}

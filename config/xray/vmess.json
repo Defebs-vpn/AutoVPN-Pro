@@ -1,0 +1,73 @@
+{
+    "inbounds": [
+        {
+            "port": 8443,
+            "protocol": "vmess",
+            "settings": {
+                "clients": [
+                    {
+                        "id": "${uuid}",
+                        "alterId": 0,
+                        "email": "vmess@${domain}"
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "ws",
+                "security": "tls",
+                "tlsSettings": {
+                    "certificates": [
+                        {
+                            "certificateFile": "/etc/letsencrypt/live/${domain}/fullchain.pem",
+                            "keyFile": "/etc/letsencrypt/live/${domain}/privkey.pem"
+                        }
+                    ]
+                },
+                "wsSettings": {
+                    "path": "/vmess",
+                    "headers": {
+                        "Host": "${domain}"
+                    }
+                }
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls",
+                    "quic"
+                ]
+            }
+        },
+        {
+            "port": 80,
+            "protocol": "vmess",
+            "settings": {
+                "clients": [
+                    {
+                        "id": "${uuid}",
+                        "alterId": 0,
+                        "email": "vmess-http@${domain}"
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "ws",
+                "wsSettings": {
+                    "path": "/vmess",
+                    "headers": {
+                        "Host": "${domain}"
+                    }
+                }
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls",
+                    "quic"
+                ]
+            }
+        }
+    ]
+}

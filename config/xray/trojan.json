@@ -1,0 +1,76 @@
+{
+    "inbounds": [
+        {
+            "port": 8443,
+            "protocol": "trojan",
+            "settings": {
+                "clients": [
+                    {
+                        "password": "${uuid}",
+                        "email": "trojan@${domain}"
+                    }
+                ],
+                "fallbacks": [
+                    {
+                        "dest": 80
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "ws",
+                "security": "tls",
+                "tlsSettings": {
+                    "certificates": [
+                        {
+                            "certificateFile": "/etc/letsencrypt/live/${domain}/fullchain.pem",
+                            "keyFile": "/etc/letsencrypt/live/${domain}/privkey.pem"
+                        }
+                    ]
+                },
+                "wsSettings": {
+                    "path": "/trojan",
+                    "headers": {
+                        "Host": "${domain}"
+                    }
+                }
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls",
+                    "quic"
+                ]
+            }
+        },
+        {
+            "port": 2087,
+            "protocol": "trojan",
+            "settings": {
+                "clients": [
+                    {
+                        "password": "${uuid}",
+                        "email": "trojan-http@${domain}"
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "ws",
+                "wsSettings": {
+                    "path": "/trojan",
+                    "headers": {
+                        "Host": "${domain}"
+                    }
+                }
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls",
+                    "quic"
+                ]
+            }
+        }
+    ]
+}
