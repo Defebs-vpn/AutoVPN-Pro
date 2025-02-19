@@ -33,6 +33,12 @@ apt update
 apt upgrade -y
 apt install -y curl socat nginx unzip python3-pip uuid-runtime wget netfilter-persistent
 
+# Stop services on port 80 ( for install cert )
+systemctl stop nginx
+systemctl stop apache2 2>/dev/null
+killall -9 python 2>/dev/null
+fuser -k 80/tcp 2>/dev/null
+    
 # Install V2Ray
 bash <(curl -L https://raw.githubusercontent.com/v2fly/fhs-install-v2ray/master/install-release.sh)
 
