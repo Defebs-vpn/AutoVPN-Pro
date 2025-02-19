@@ -31,7 +31,7 @@ fi
 # Initial system setup
 apt update
 apt upgrade -y
-apt install -y curl socat nginx unzip python3-pip uuid-runtime wget netfilter-persistent
+apt install -y curl socat nginx unzip python3-pip uuid-runtime wget iptables-persistent netfilter-persistent
 
 # Stop services on port 80 ( for install cert )
 systemctl stop nginx
@@ -377,6 +377,53 @@ EOF
 systemctl enable v2ray
 systemctl restart v2ray
 systemctl restart nginx
+
+# Flush aturan lama
+iptables -F
+iptables -X
+iptables -Z
+
+# Allow loopback dan traffic yang sudah diizinkan
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# Izinkan akses SSH (Opsional, sesuaikan dengan port SSH kamu)
+iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+
+# Izinkan akses HTTP dan HTTPS
+iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+iptables -A INPUT -p tcp --dport 443 -j ACCEPT
+
+# Izinkan port V2Ray/VLESS/Trojan
+iptables -A INPUT -p tcp --dport 10022 -j ACCEPT  # Vmess Non-Tls
+iptables -A INPUT -p tcp --dport 10023 -j ACCEPT  # Vless Non-Tls
+iptables -A INPUT -p tcp --dport 10001 -j ACCEPT  # VMess TLS
+iptables -A INPUT -p tcp --dport 10002 -j ACCEPT  # VLESS TLS
+iptables -A INPUT -p tcp --dport 10003 -j ACCEPT  # Trojan WS
+iptables -A INPUT -p tcp --dport 10004 -j ACCEPT  # VMess gRPC
+iptables -A INPUT -p tcp --dport 10005 -j ACCEPT  # VLESS gRPC
+iptables -A INPUT -p tcp --dport 10006 -j ACCEPT  # Trojan gRPC
+iptables -A INPUT -p tcp --dport 10007 -j ACCEPT  # Trojan TCP
+
+# Blokir semua koneksi yang tidak diizinkan
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
+iptables -P OUTPUT ACCEPT
+
+# Simpan aturan firewall agar tetap aktif setelah reboot
+netfilter-persistent save
+netfilter-persistent reload
+
+# Hapus file instalasi yang tidak diperlukan
+rm -f tesv2ray.sh
+rm -f install-release.sh
+rm -rf ~/.acme.sh
+rm -f /var/lib/dpkg/lock
+rm -f /var/lib/dpkg/lock-frontend
+rm -f /var/cache/apt/archives/lock
+rm -rf /var/lib/apt/lists/*
+rm -f /root/.bash_history
+history -c
 
 # Show installation info
 clear
