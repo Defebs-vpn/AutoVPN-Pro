@@ -53,7 +53,7 @@ read -rp "Domain: " -e DOMAIN
 echo "$DOMAIN" > /etc/v2ray/domain
 
 # Install SSL certificate
-curl https://get.acme.sh | sh -s email=admin@${DOMAIN}
+curl https://get.acme.sh | sh -s dedefebriansyah402@gmail.com
 ~/.acme.sh/acme.sh --register-account -m admin@${DOMAIN}
 ~/.acme.sh/acme.sh --issue -d ${DOMAIN} --standalone --keylength ec-256
 ~/.acme.sh/acme.sh --install-cert -d ${DOMAIN} \
