@@ -389,7 +389,6 @@ cat > /etc/nginx/conf.d/${DOMAIN}.conf << EOF
 server {
     listen 80;
     listen [::]:80;
-    server_name ${DOMAIN};
     return 301 https://${DOMAIN}\$request_uri;
 }
 
