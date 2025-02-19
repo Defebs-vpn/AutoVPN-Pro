@@ -68,7 +68,7 @@ cat > ${V2RAY_CONFIG}/config.json << EOF
   },
   "inbounds": [
     {
-      "port": 80,
+      "port": 10022,
       "protocol": "vmess",
       "settings": {
         "clients": [{"id": "${UUID}"}]
@@ -115,7 +115,7 @@ cat > ${V2RAY_CONFIG}/config.json << EOF
       }
     },
     {
-      "port": 80,
+      "port": 10023,
       "protocol": "vless",
       "settings": {
         "clients": [{"id": "${UUID}"}],
@@ -244,10 +244,32 @@ EOF
 cat > ${NGINX_CONFIG}/conf.d/v2ray.conf << EOF
 server {
     listen 80;
+    listen [::]:80;
     server_name ${DOMAIN};
-    return 301 https://\$server_name\$request_uri;
-}
+    
+    # Non-TLS WebSocket
+    location /vmess {
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:10022;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
 
+    location /vless {
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:10023;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+}
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
