@@ -1265,6 +1265,558 @@ EOF
     echo -e "${YELLOW}Client configuration saved to: ${BASE_DIR}/config/xray-clients.txt${NC}"
 }
 
+#Fungsi con nginx
+setup_nginx() {
+    echo -e "${YELLOW}Setting up Nginx with Multi-Protocol Support...${NC}"
+    
+    # Create webroot directory
+    mkdir -p /var/www/html
+    
+    # Create default index page
+    cat > /var/www/html/index.html <<EOF
+<!DOCTYPE html>
+<html>
+<head>
+    <title>${DOMAIN}</title>
+    <meta name="robots" content="noindex, nofollow">
+</head>
+<body>
+    <h1>Welcome to ${DOMAIN}</h1>
+</body>
+</html>
+EOF
+
+    # Create Nginx main configuration
+    cat > /etc/nginx/nginx.conf <<EOF
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+
+events {
+    worker_connections 1024;
+    multi_accept on;
+    use epoll;
+}
+
+http {
+    # Basic Settings
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+    server_tokens off;
+    
+    # MIME Types
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    
+    # SSL Settings
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_buffer_size 4k;
+    
+    # Logging Settings
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+    
+    # Gzip Settings
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+    
+    # Virtual Host Configs
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*;
+    
+    # Buffer Settings
+    client_max_body_size 10m;
+    client_body_buffer_size 128k;
+    proxy_buffer_size 64k;
+    proxy_buffers 8 64k;
+    proxy_busy_buffers_size 128k;
+    
+    # Timeouts
+    proxy_connect_timeout 60s;
+    proxy_send_timeout 60s;
+    proxy_read_timeout 60s;
+}
+EOF
+
+    # Create Nginx server configuration
+    cat > /etc/nginx/conf.d/${DOMAIN}.conf <<EOF
+# HTTP Server (Redirect to HTTPS)
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${DOMAIN};
+    
+    location / {
+        return 301 https://\$server_name\$request_uri;
+    }
+    
+    # Allow WebSocket without TLS
+    location /vmess-nontls {
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:${PORTS[XRAY_VMESS_NONTLS]};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+    
+    # Non-TLS SSH WebSocket
+    location /ssh-ws {
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:${PORTS[SSH_WS]};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+}
+
+# HTTPS Server
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name ${DOMAIN};
+    
+    # SSL Configuration
+    ssl_certificate ${SSL_DIR}/${DOMAIN}/fullchain.crt;
+    ssl_certificate_key ${SSL_DIR}/${DOMAIN}/private.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:50m;
+    ssl_session_tickets off;
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    resolver 8.8.8.8 8.8.4.4 valid=300s;
+    resolver_timeout 5s;
+    
+    # Security Headers
+    add_header Strict-Transport-Security "max-age=63072000" always;
+    add_header X-Frame-Options DENY;
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+    add_header Referrer-Policy "strict-origin-when-cross-origin";
+    
+    # Root Directory
+    root /var/www/html;
+    index index.html index.htm;
+    
+    # Default Location
+    location / {
+        try_files \$uri \$uri/ =404;
+    }
+    
+    # SSH WebSocket
+    location /ssh-ws {
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:${PORTS[SSH_WSS]};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+    
+    # VMess WebSocket
+    location /vmess {
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:${PORTS[XRAY_VMESS_TLS]};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+    
+    # VLESS WebSocket
+    location /vless {
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:${PORTS[XRAY_VLESS_TLS]};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+    
+    # Trojan WebSocket
+    location /trojan-ws {
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:${PORTS[XRAY_TROJAN_TLS]};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+    
+    # gRPC Configuration
+    location ^~ /vless-grpc {
+        grpc_pass grpc://127.0.0.1:${PORTS[XRAY_VLESS_GRPC]};
+        grpc_connect_timeout 60s;
+        grpc_read_timeout 60s;
+        grpc_send_timeout 60s;
+        grpc_set_header X-Real-IP \$remote_addr;
+        grpc_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+    
+    location ^~ /vmess-grpc {
+        grpc_pass grpc://127.0.0.1:${PORTS[XRAY_VMESS_GRPC]};
+        grpc_connect_timeout 60s;
+        grpc_read_timeout 60s;
+        grpc_send_timeout 60s;
+        grpc_set_header X-Real-IP \$remote_addr;
+        grpc_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+    
+    location ^~ /trojan-grpc {
+        grpc_pass grpc://127.0.0.1:${PORTS[XRAY_TROJAN_GRPC]};
+        grpc_connect_timeout 60s;
+        grpc_read_timeout 60s;
+        grpc_send_timeout 60s;
+        grpc_set_header X-Real-IP \$remote_addr;
+        grpc_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+    
+    # Control Panel (Optional)
+    location /panel {
+        auth_basic "Restricted Access";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+        try_files \$uri \$uri/ /panel/index.php?\$args;
+    }
+    
+    # Status Page (Protected)
+    location /nginx_status {
+        stub_status on;
+        access_log off;
+        allow 127.0.0.1;
+        deny all;
+    }
+    
+    # PHP Configuration
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/var/run/php/php8.0-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        include fastcgi_params;
+    }
+    
+    # Deny access to hidden files
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+}
+EOF
+
+    # Create basic authentication for panel
+    if [ ! -f /etc/nginx/.htpasswd ]; then
+        echo -n "admin:" > /etc/nginx/.htpasswd
+        openssl passwd -apr1 "your_password" >> /etc/nginx/.htpasswd
+    fi
+
+    # Set proper permissions
+    chown -R www-data:www-data /var/www/html
+    chmod -R 755 /var/www/html
+
+    # Test and reload Nginx
+    nginx -t && systemctl reload nginx
+
+    echo -e "${GREEN}Nginx configuration completed successfully!${NC}"
+}
+
+
+# Additional Services Setup Script
+setup_additional_services() {
+    echo -e "${YELLOW}Setting up additional services and utilities...${NC}"
+
+    # Create necessary directories
+    mkdir -p \
+        ${BASE_DIR}/{scripts,backup,monitor,users} \
+        ${LOG_DIR} \
+        ${BACKUP_DIR}
+
+    # Setup Backup Service
+    cat > ${BASE_DIR}/scripts/backup.sh <<EOF
+#!/bin/bash
+# Automatic Backup Script
+
+BACKUP_DATE=\$(date +%Y%m%d_%H%M%S)
+BACKUP_FILE="${BACKUP_DIR}/vpn_backup_\${BACKUP_DATE}.tar.gz"
+
+# Create backup
+tar -czf \${BACKUP_FILE} \
+    /etc/ssh/sshd_config \
+    ${XRAY_DIR}/config.json \
+    ${NGINX_DIR}/${DOMAIN}.conf \
+    ${SSL_DIR}/${DOMAIN} \
+    ${BASE_DIR}/config \
+    /etc/nginx/nginx.conf
+
+# Keep only last 7 days backups
+find ${BACKUP_DIR} -type f -mtime +7 -delete
+
+echo "Backup completed: \${BACKUP_FILE}"
+EOF
+
+    # Setup Monitoring Service
+    cat > ${BASE_DIR}/scripts/monitor.sh <<EOF
+#!/bin/bash
+# System Monitoring Script
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# Get system info
+CPU_USAGE=\$(top -bn1 | grep "Cpu(s)" | awk '{print \$2}')
+MEMORY_USAGE=\$(free -m | awk 'NR==2{printf "%.2f%%", \$3*100/\$2}')
+DISK_USAGE=\$(df -h / | awk 'NR==2{print \$5}')
+UPTIME=\$(uptime -p)
+LOAD_AVERAGE=\$(uptime | awk -F'load average:' '{print \$2}')
+
+# Get service status
+SSH_STATUS=\$(systemctl is-active ssh)
+NGINX_STATUS=\$(systemctl is-active nginx)
+XRAY_STATUS=\$(systemctl is-active xray)
+
+# Get active connections
+SSH_CONN=\$(netstat -anp | grep :22 | grep ESTABLISHED | wc -l)
+VMESS_CONN=\$(netstat -anp | grep :443 | grep ESTABLISHED | wc -l)
+VLESS_CONN=\$(netstat -anp | grep :443 | grep ESTABLISHED | wc -l)
+TROJAN_CONN=\$(netstat -anp | grep :443 | grep ESTABLISHED | wc -l)
+
+clear
+echo -e "${GREEN}╔═══════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║         ${YELLOW}SYSTEM MONITORING DASHBOARD${GREEN}            ║${NC}"
+echo -e "${GREEN}╠═══════════════════════════════════════════════╣${NC}"
+echo -e "${GREEN}║ ${BLUE}System Information:${GREEN}                           ║${NC}"
+echo -e "${GREEN}║ CPU Usage    : \${CPU_USAGE}%${GREEN}                       ║${NC}"
+echo -e "${GREEN}║ Memory Usage : \${MEMORY_USAGE}${GREEN}                     ║${NC}"
+echo -e "${GREEN}║ Disk Usage   : \${DISK_USAGE}${GREEN}                       ║${NC}"
+echo -e "${GREEN}║ Load Average : \${LOAD_AVERAGE}${GREEN}                     ║${NC}"
+echo -e "${GREEN}║ Uptime       : \${UPTIME}${GREEN}                          ║${NC}"
+echo -e "${GREEN}╠═══════════════════════════════════════════════╣${NC}"
+echo -e "${GREEN}║ ${BLUE}Service Status:${GREEN}                              ║${NC}"
+echo -e "${GREEN}║ SSH          : \${SSH_STATUS}${GREEN}                       ║${NC}"
+echo -e "${GREEN}║ Nginx        : \${NGINX_STATUS}${GREEN}                     ║${NC}"
+echo -e "${GREEN}║ Xray         : \${XRAY_STATUS}${GREEN}                      ║${NC}"
+echo -e "${GREEN}╠═══════════════════════════════════════════════╣${NC}"
+echo -e "${GREEN}║ ${BLUE}Active Connections:${GREEN}                          ║${NC}"
+echo -e "${GREEN}║ SSH          : \${SSH_CONN}${GREEN}                        ║${NC}"
+echo -e "${GREEN}║ VMess        : \${VMESS_CONN}${GREEN}                      ║${NC}"
+echo -e "${GREEN}║ VLESS        : \${VLESS_CONN}${GREEN}                      ║${NC}"
+echo -e "${GREEN}║ Trojan       : \${TROJAN_CONN}${GREEN}                     ║${NC}"
+echo -e "${GREEN}╚═══════════════════════════════════════════════╝${NC}"
+EOF
+
+    # Setup User Management Script
+    cat > ${BASE_DIR}/scripts/user-manager.sh <<EOF
+#!/bin/bash
+# User Management Script
+
+add_user() {
+    local username=\$1
+    local password=\$2
+    local exp_days=\$3
+    
+    # Add system user
+    useradd -m -s /bin/false \$username
+    echo "\$username:\$password" | chpasswd
+    
+    # Set expiry
+    exp_date=\$(date -d "+\$exp_days days" +"%Y-%m-%d")
+    chage -E \$(date -d "\$exp_date" +%s) \$username
+    
+    # Add to Xray config
+    local uuid=\$(cat /proc/sys/kernel/random/uuid)
+    
+    # Add VMess user
+    jq ".inbounds[0].settings.clients += [{\"id\":\"\$uuid\",\"email\":\"\$username@\${DOMAIN}\",\"alterId\":0}]" \
+        ${XRAY_DIR}/config.json > ${XRAY_DIR}/config.json.tmp
+    mv ${XRAY_DIR}/config.json.tmp ${XRAY_DIR}/config.json
+    
+    # Add VLESS user
+    jq ".inbounds[2].settings.clients += [{\"id\":\"\$uuid\",\"email\":\"\$username@\${DOMAIN}\"}]" \
+        ${XRAY_DIR}/config.json > ${XRAY_DIR}/config.json.tmp
+    mv ${XRAY_DIR}/config.json.tmp ${XRAY_DIR}/config.json
+    
+    # Save user info
+    echo "\$username:\$password:\$exp_date:\$uuid" >> ${BASE_DIR}/users/user_list.txt
+    
+    systemctl restart xray
+    
+    echo "User \$username added successfully!"
+    echo "Expiry date: \$exp_date"
+    echo "UUID: \$uuid"
+}
+
+del_user() {
+    local username=\$1
+    
+    # Delete system user
+    userdel -r \$username
+    
+    # Remove from Xray config
+    local uuid=\$(grep "^\$username:" ${BASE_DIR}/users/user_list.txt | cut -d: -f4)
+    
+    # Remove VMess user
+    jq "del(.inbounds[0].settings.clients[] | select(.email == \"\$username@\${DOMAIN}\"))" \
+        ${XRAY_DIR}/config.json > ${XRAY_DIR}/config.json.tmp
+    mv ${XRAY_DIR}/config.json.tmp ${XRAY_DIR}/config.json
+    
+    # Remove VLESS user
+    jq "del(.inbounds[2].settings.clients[] | select(.email == \"\$username@\${DOMAIN}\"))" \
+        ${XRAY_DIR}/config.json > ${XRAY_DIR}/config.json.tmp
+    mv ${XRAY_DIR}/config.json.tmp ${XRAY_DIR}/config.json
+    
+    # Remove from user list
+    sed -i "/^\$username:/d" ${BASE_DIR}/users/user_list.txt
+    
+    systemctl restart xray
+    
+    echo "User \$username deleted successfully!"
+}
+
+list_users() {
+    echo "Current Users:"
+    echo "----------------------------------------"
+    echo "Username | Password | Expiry Date | UUID"
+    echo "----------------------------------------"
+    cat ${BASE_DIR}/users/user_list.txt | while IFS=: read -r user pass exp uuid; do
+        echo "\$user | \$pass | \$exp | \$uuid"
+    done
+    echo "----------------------------------------"
+}
+EOF
+
+    # Setup Bandwidth Monitor
+    cat > ${BASE_DIR}/scripts/bandwidth.sh <<EOF
+#!/bin/bash
+# Bandwidth Monitoring Script
+
+interface=\$(ip route | awk '/default/ {print \$5}')
+rx_bytes_prev=\$(cat /sys/class/net/\$interface/statistics/rx_bytes)
+tx_bytes_prev=\$(cat /sys/class/net/\$interface/statistics/tx_bytes)
+
+while true; do
+    rx_bytes=\$(cat /sys/class/net/\$interface/statistics/rx_bytes)
+    tx_bytes=\$(cat /sys/class/net/\$interface/statistics/tx_bytes)
+    
+    rx_rate=\$(((\$rx_bytes - \$rx_bytes_prev) / 1024))
+    tx_rate=\$(((\$tx_bytes - \$tx_bytes_prev) / 1024))
+    
+    clear
+    echo -e "${GREEN}╔═══════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║         ${YELLOW}BANDWIDTH MONITORING${GREEN}                  ║${NC}"
+    echo -e "${GREEN}╠═══════════════════════════════════════════════╣${NC}"
+    echo -e "${GREEN}║ Download Speed: \${rx_rate} KB/s${GREEN}                    ║${NC}"
+    echo -e "${GREEN}║ Upload Speed  : \${tx_rate} KB/s${GREEN}                    ║${NC}"
+    echo -e "${GREEN}╚═══════════════════════════════════════════════╝${NC}"
+    
+    rx_bytes_prev=\$rx_bytes
+    tx_bytes_prev=\$tx_bytes
+    
+    sleep 1
+done
+EOF
+
+    # Setup SSL Auto-Renewal
+    cat > ${BASE_DIR}/scripts/ssl-renewal.sh <<EOF
+#!/bin/bash
+# SSL Auto-Renewal Script
+
+# Stop services
+systemctl stop nginx
+systemctl stop xray
+
+# Renew certificate
+~/.acme.sh/acme.sh --renew -d ${DOMAIN} --force
+
+# Copy new certificate
+cp ${SSL_DIR}/${DOMAIN}/fullchain.crt ${SSL_DIR}/${DOMAIN}/fullchain.crt.bak
+cp ${SSL_DIR}/${DOMAIN}/private.key ${SSL_DIR}/${DOMAIN}/private.key.bak
+~/.acme.sh/acme.sh --install-cert -d ${DOMAIN} \
+    --key-file ${SSL_DIR}/${DOMAIN}/private.key \
+    --fullchain-file ${SSL_DIR}/${DOMAIN}/fullchain.crt
+
+# Start services
+systemctl start nginx
+systemctl start xray
+
+echo "SSL certificate renewed successfully!"
+EOF
+
+    # Make scripts executable
+    chmod +x ${BASE_DIR}/scripts/*.sh
+
+    # Setup cron jobs
+    echo "0 0 * * * root ${BASE_DIR}/scripts/backup.sh >/dev/null 2>&1" > /etc/cron.d/vpn-backup
+    echo "0 0 1 * * root ${BASE_DIR}/scripts/ssl-renewal.sh >/dev/null 2>&1" > /etc/cron.d/ssl-renewal
+    
+    # Create menu script
+    cat > /usr/local/bin/menu <<EOF
+#!/bin/bash
+# VPN Service Menu
+
+while true; do
+    clear
+    echo -e "${GREEN}╔═══════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║         ${YELLOW}VPN SERVICE MANAGEMENT MENU${GREEN}           ║${NC}"
+    echo -e "${GREEN}╠═══════════════════════════════════════════════╣${NC}"
+    echo -e "${GREEN}║ 1. System Monitor${GREEN}                               ║${NC}"
+    echo -e "${GREEN}║ 2. Bandwidth Monitor${GREEN}                           ║${NC}"
+    echo -e "${GREEN}║ 3. User Management${GREEN}                            ║${NC}"
+    echo -e "${GREEN}║ 4. Backup Configuration${GREEN}                       ║${NC}"
+    echo -e "${GREEN}║ 5. SSL Certificate Renewal${GREEN}                    ║${NC}"
+    echo -e "${GREEN}║ 6. Restart All Services${GREEN}                      ║${NC}"
+    echo -e "${GREEN}║ 7. Exit${GREEN}                                      ║${NC}"
+    echo -e "${GREEN}╚═══════════════════════════════════════════════╝${NC}"
+    
+    read -p "Select option [1-7]: " option
+    
+    case \$option in
+        1) ${BASE_DIR}/scripts/monitor.sh ;;
+        2) ${BASE_DIR}/scripts/bandwidth.sh ;;
+        3) ${BASE_DIR}/scripts/user-manager.sh ;;
+        4) ${BASE_DIR}/scripts/backup.sh ;;
+        5) ${BASE_DIR}/scripts/ssl-renewal.sh ;;
+        6) systemctl restart nginx xray ssh ;;
+        7) break ;;
+        *) echo "Invalid option" ;;
+    esac
+    
+    read -n 1 -s -r -p "Press any key to continue..."
+done
+EOF
+
+    chmod +x /usr/local/bin/menu
+
+    echo -e "${GREEN}Additional services setup completed!${NC}"
+    echo -e "${YELLOW}Use 'menu' command to access the management interface${NC}"
+}
+
 # Main installation function
 main() {
     show_banner
